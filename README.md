@@ -1,19 +1,18 @@
-<div style="display: flex !important; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; flex-wrap: nowrap; gap: 10px;">
-
-  <!-- Groupe gauche -->
-  <div style="display: flex; gap: 15px; align-items: center; flex-shrink: 1;">
-    <img src="img/CESAER.jpg" alt="CESAER" style="width: 120px; max-width: 20vw; height: auto;"/>
-    <img src="img/INRAE.png" alt="INRAE" style="width: 120px; max-width: 20vw; height: auto;"/>
-    <img src="img/AGRO.png" alt="Institut Agro Dijon" style="width: 120px; max-width: 20vw; height: auto;"/>
-  </div>
-
-  <!-- Groupe droite -->
-  <div style="display: flex; gap: 15px; align-items: center; flex-shrink: 1;">
-    <img src="img/OTG.png" alt="OTG" style="width: 120px; max-width: 20vw; height: auto;"/>
-    <img src="img/FAC.png" alt="Faculté de Géographie" style="width: 120px; max-width: 20vw; height: auto;"/>
-  </div>
-
-</div>
+<table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
+  <tr>
+    <!-- Groupe Gauche -->
+    <td align="left" style="white-space: nowrap;">
+      <img src="img/CESAER.jpg" alt="CESAER" width="120" style="margin-right: 15px; vertical-align: middle;"/>
+      <img src="img/INRAE.png" alt="INRAE" width="120" style="margin-right: 15px; vertical-align: middle;"/>
+      <img src="img/AGRO.png" alt="Institut Agro Dijon" width="120" style="vertical-align: middle;"/>
+    </td>
+    <!-- Groupe Droite -->
+    <td align="right" style="white-space: nowrap;">
+      <img src="img/OTG.png" alt="OTG" width="120" style="margin-right: 15px; vertical-align: middle;"/>
+      <img src="img/FAC.png" alt="Faculté de Géographie" width="120" style="vertical-align: middle;"/>
+    </td>
+  </tr>
+</table>
 
 ---
 
