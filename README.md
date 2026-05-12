@@ -1,10 +1,19 @@
-<p align="center">
-  <img src="img/CESAER.jpg" alt="CESAER" width="120" style="margin-right: 20px;"/>
-  <img src="img/INRAE.png" alt="INRAE" width="120" style="margin-right: 20px;"/>
-  <img src="img/AGRO.png" alt="Institut Agro Dijon" width="120" style="margin-right: 20px;"/>
-  <img src="img/OTG.png" alt="OTG" width="120" style="margin-right: 20px;"/>
-  <img src="img/FAC.png" alt="Faculté de Géographie" width="120"/>
-</p>
+<div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+
+  <!-- Groupe gauche -->
+  <div style="display:flex; gap:20px; align-items:center;">
+    <img src="img/CESAER.jpg" alt="CESAER" width="120"/>
+    <img src="img/INRAE.png" alt="INRAE" width="120"/>
+    <img src="img/AGRO.png" alt="Institut Agro Dijon" width="120"/>
+  </div>
+
+  <!-- Groupe droite -->
+  <div style="display:flex; gap:20px; align-items:center;">
+    <img src="img/OTG.png" alt="OTG" width="120"/>
+    <img src="img/FAC.png" alt="Faculté de Géographie" width="120"/>
+  </div>
+
+</div>
 
 ---
 
