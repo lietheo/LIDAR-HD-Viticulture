@@ -1,20 +1,14 @@
-<div style="display: flex !important; justify-content: space-between; align-items: center; width: 100%; flex-wrap: nowrap !important; min-width: 650px;">
-
-  <!-- Groupe gauche -->
-  <div style="display: flex; gap: 15px; align-items: center; flex-shrink: 0;">
-    <img src="img/CESAER.jpg" alt="CESAER" width="110"/>
-    <img src="img/INRAE.png" alt="INRAE" width="110"/>
-    <img src="img/AGRO.png" alt="Institut Agro Dijon" width="110"/>
-  </div>
-
-  <!-- Groupe droite -->
-  <div style="display: flex; gap: 15px; align-items: center; flex-shrink: 0;">
-    <img src="img/OTG.png" alt="OTG" width="110"/>
-    <img src="img/FAC.png" alt="Faculté de Géographie" width="110"/>
-  </div>
-
-</div>
----
+<table width="100%">
+  <tr>
+    <td align="left">
+      <img src="img/CESAER.jpg" alt="CESAER" width="120">
+    </td>
+    <td align="right">
+      <img src="img/INRAE.png" alt="INRAE" width="120" style="margin-right: 15px;">
+      <img src="img/AGRO.png" alt="Institut Agro Dijon" width="180">
+    </td>
+  </tr>
+</table>
 
 # Détection d'anomalies structurelles viticoles par LiDAR HD
 
@@ -27,3 +21,11 @@ Ce dépôt contient le code source développé dans le cadre du mémoire de Mast
 * **Année :** 2025 - 2026
 
 *Ce code est fourni à des fins d'évaluation académique et de documentation méthodologique.*
+
+<div style="position:relative; width:100%; margin-top:50px; padding:20px 0; text-align:center;">
+  <img src="img/OTG.png" alt="OTG" width="120">
+  <img src="img/FAC.png"
+       alt="Faculté de Géographie"
+       width="180"
+       style="position:absolute; right:20px; top:50%; transform:translateY(-50%);">
+</div>
