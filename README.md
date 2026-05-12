@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="[lien_logo_cesaer]" alt="CESAER" width="120" style="margin-right: 20px;"/>
-  <img src="[lien_logo_inrae]" alt="INRAE" width="120" style="margin-right: 20px;"/>
-  <img src="[lien_logo_agro_dijon]" alt="Institut Agro Dijon" width="120" style="margin-right: 20px;"/>
-  <img src="[lien_logo_unistra]" alt="Université de Strasbourg" width="120" style="margin-right: 20px;"/>
-  <img src="[lien_logo_fac_geographie]" alt="Faculté de Géographie" width="120"/>
+  <img src="[img]" alt="CESAER" width="120" style="margin-right: 20px;"/>
+  <img src="[img]" alt="INRAE" width="120" style="margin-right: 20px;"/>
+  <img src="[img]" alt="Institut Agro Dijon" width="120" style="margin-right: 20px;"/>
+  <img src="[img]" alt="OTG" width="120" style="margin-right: 20px;"/>
+  <img src="[img]" alt="Faculté de Géographie" width="120"/>
 </p>
 
 ---
