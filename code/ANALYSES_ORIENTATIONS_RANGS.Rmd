@@ -1,0 +1,383 @@
+---
+title: "R Notebook orientation parcelles"
+output: 
+  ioslides_presentation:
+    widescreen: true
+---
+
+
+```{r}
+library(terra)
+library(sf)
+library(data.table)
+library(dplyr)
+library(pbapply)
+library(lidR)
+library(dbscan) 
+```
+
+# (A1) Pipeline d'analyse de l'orientation et de la structure viticole (LiDAR) --> Nuages de points
+
+## 1. Prétraitement et filtrage des données
+
+Le nuage de points brut subit une série de tris successifs pour isoler la composante ligneuse de la vigne :
+
+- Découpage spatial (ROI) : Extraction des points à l'emprise de la parcelle cadastrale.
+- Filtrage thématique : Sélection des points selon leur classification (classes 3, 4 et 5) et une tranche de hauteur spécifique (30cm à 3m).
+- Validation par masque M1 : Seuls les points LiDAR intersectant un pixel "végétation" du masque raster sont conservés.
+
+## 2. Segmentation des rangs par clustering (DBSCAN)
+
+Pour isoler chaque rang individuellement au sein de la parcelle, l'algorithme DBSCAN est appliqué : 
+Epsilon (0,8 m) : Distance maximale pour connecter deux points au sein d'un même rang.
+MinPts (10) : Nombre minimal de points pour valider l'existence d'un segment.
+
+Cette étape permet de passer d'un nuage de points global à des entités géométriques distinctes (clusters).
+
+## 3. Analyse de forme par ACP
+
+Chaque cluster est analysé via une Analyse en Composantes Principales (ACP) pour quantifier sa géométrie :
+
+Calcul de l'angle : Détermination de l'axe principal du rang.
+Ratio d'élongation : Rapport entre les deux premières valeurs propres ($\lambda_1 / \lambda_2$).
+Dimensions : Calcul de la longueur et de la largeur réelle du patch.
+Filtrage morphologique : Exclusion des objets ne respectant pas les critères de forme (ex: ratio < 4 ou longueur < 3 m). 
+
+**Le filtrage et propre à l'étape, la perte de données contrairment aux autre métriques n'est pas problématique**
+
+```{r}
+# ------------------------------------------------------------------------------
+# FONCTION 1 : ACP INITIALE
+# ------------------------------------------------------------------------------
+
+pca_metrics_coords <- function(xy) {
+  
+  if (is.null(xy) || nrow(xy) < 3) {
+    return(list(angle = NA_real_, ratio = NA_real_, length = NA_real_, width = NA_real_))
+  }
+  
+  M <- scale(xy, center = TRUE, scale = FALSE)
+  C <- crossprod(M)
+  eig <- eigen(C)
+  
+  vals <- eig$values
+  vecs <- eig$vectors
+  
+  if (length(vals) < 2 || any(!is.finite(vals)) || min(vals, na.rm = TRUE) <= 0) {
+    return(list(angle = NA_real_, ratio = NA_real_, length = NA_real_, width = NA_real_))
+  }
+  
+  i1 <- which.max(vals)
+  i2 <- which.min(vals)
+  
+  v1 <- vecs[, i1]
+  v2 <- vecs[, i2]
+  
+  proj1 <- as.numeric(M %*% v1)
+  proj2 <- as.numeric(M %*% v2)
+  
+  angle <- atan2(v1[2], v1[1]) * 180 / pi
+  if (angle < 0) angle <- angle + 180
+  
+  list(
+    angle = angle,
+    ratio = vals[i1] / vals[i2],
+    length = diff(range(proj1, na.rm = TRUE)),
+    width  = diff(range(proj2, na.rm = TRUE))
+  )
+}
+
+# ------------------------------------------------------------------------------
+# FONCTION 2 : CALCUL DE L'ORIENTATION (BOUCLE PAR PARCELLE)
+# ------------------------------------------------------------------------------
+
+calculer_orientation_une_parcelle <- function(parc_i, mask_m1, min_area_m2 = 10, max_area_m2 = 5000, min_ratio = 4, max_width_m = 6) {
+  
+  # Découpage strict sur l'emprise de la parcelle
+  r_crop <- crop(mask_m1, ext(parc_i))
+  r_mask <- mask(r_crop, parc_i)
+  
+  # Détection des patchs
+  p <- patches(r_mask, directions = 8, zeroAsNA = TRUE)
+  if (!hasValues(p)) return(NULL) 
+  
+  # Extraction
+  dt <- as.data.table(p, cells = TRUE, na.rm = TRUE)
+  setnames(dt, 2, "patch_id")
+  
+  current_idu <- parc_i$IDU 
+  
+  # Reconstruction des coordonnées
+  dt[, `:=`(x = xFromCell(p, cell), y = yFromCell(p, cell))]
+  
+  # Application de la fonction ACP
+  res_metrics <- dt[, {
+    n_pix <- .N
+    area <- n_pix * 0.25 
+    
+    if (n_pix < 10) { 
+      list(IDU = current_idu, angle = NA_real_, ratio = NA_real_, width_m = NA_real_, area = area)
+    } else {
+      # Transformation en matrice pour la fonction
+      xy_mat <- cbind(x, y)
+      res_pca <- pca_metrics_coords(xy_mat)
+      
+      list(IDU = current_idu, angle = res_pca$angle, ratio = res_pca$ratio, width_m = res_pca$width, area = area)
+    }
+  }, by = patch_id]
+  
+  # Filtres de forme
+  res_metrics <- res_metrics[!is.na(angle) & 
+                               area >= min_area_m2 & area <= max_area_m2 & 
+                               ratio >= min_ratio & width_m <= max_width_m]
+  
+  return(as.data.frame(res_metrics))
+}
+
+# ------------------------------------------------------------------------------
+# FONCTION 3 : ÉVALUATION STATISTIQUE PAR PARCELLE
+# ------------------------------------------------------------------------------
+
+evaluer_statistiques_parcelles <- function(parc, patch_metrics) {
+  if (nrow(patch_metrics) == 0) return(parc)
+  
+  stats <- patch_metrics %>%
+    group_by(IDU) %>%
+    summarise(
+      nb_rangs_detectes = n(),
+      force_orientation_moyenne = mean(ratio, na.rm = TRUE),
+      # Calcul direct de la somme des composantes circulaires
+      sum_cos = sum(cos((angle * 2) * pi / 180), na.rm = TRUE),
+      sum_sin = sum(sin((angle * 2) * pi / 180), na.rm = TRUE),
+      
+      # Calcul de l'angle dominant et de la cohérence
+      angle_dominant = (atan2(sum_sin, sum_cos) / 2) * 180 / pi,
+      coherence_angulaire = sqrt(sum_cos^2 + sum_sin^2) / n(),
+      .groups = "drop"
+    ) %>%
+    mutate(angle_dominant = angle_dominant %% 180)
+  
+  return(parc %>% left_join(stats, by = "IDU"))
+}
+# ------------------------------------------------------------------------------
+# EXÉCUTION AVEC LA BOUCLE
+# ------------------------------------------------------------------------------
+
+chemin_parcelles <- "C:/Users/tliegeon/Desktop/Hilal_Exemple_commune_entiere/output_gironde/33394/parcelles_commune.gpkg"
+chemin_masque_brut <- "C:/Users/tliegeon/Desktop/Hilal_Exemple_commune_entiere/output_gironde/33394/vegmask.tif"
+
+# ---- 2) Recharger le LAScatalog normalisé ----
+dossier_tmp <- "C:/Users/tliegeon/Desktop/Hilal_Exemple_commune_entiere/tmp_lidar_back_emilion/"
+
+# Génère une liste stricte des fichiers contenant "norm_" dans leur nom
+fichiers_norm <- list.files(dossier_tmp, pattern = "norm_.*\\.laz$", full.names = TRUE)
+
+# Crée le catalogue uniquement à partir de cette liste filtrée
+ctg_norm <- readLAScatalog(fichiers_norm)
+
+
+parc_com <- st_read(chemin_parcelles, quiet = TRUE)
+mask_raw_com <- rast(chemin_masque_brut)
+
+# 1. Suppression des géométries vides avant le traitement
+parc_com <- parc_com[!st_is_empty(parc_com), ]
+
+# 2. Ajout de l'instruction pour ignorer les erreurs résiduelles
+liste_resultats <- pblapply(1:nrow(parc_com), function(i) {
+  tryCatch({
+    calculer_orientation_une_parcelle(parc_com[i, ], mask_raw_com)
+  }, error = function(e) {
+    return(NULL)
+  })
+})
+
+metriques_patchs <- bind_rows(liste_resultats)
+parcelles_evaluees <- evaluer_statistiques_parcelles(parc_com, metriques_patchs)
+
+chemin_sortie <- "C:/Users/tliegeon/Desktop/Hilal_Exemple_commune_entiere/output_gironde/33394/TEST_statistiques_orientation_TUTEUR.gpkg"
+st_write(parcelles_evaluees, chemin_sortie, append = FALSE, quiet = TRUE)
+message("--- Traitement terminé.")
+```
+
+
+## (A2) Pipeline d'analyse de l'orientation par approche raster ---> Masque M1
+
+## 1. Prétraitement et segmentation matricielle
+
+Le traitement repose sur l'analyse de la grille raster binaire issue du modèle numérique de canopée (M1) : 
+Découpage spatial : Le masque global est découpé selon l'emprise exacte de chaque parcelle cadastrale.
+Identification des pixels : Seuls les pixels de valeur 1 (présence de végétation entre $0,3\text{ m}$ et $3,0\text{ m}$) sont conservés. Les pixels de valeur 0 sont convertis en données manquantes (NA) pour isoler les structures ligneuses.
+
+## 2. Détection de patches (Connectivité)
+
+Pour isoler les segments de rangs, l'algorithme de connectivité de grille est utilisé via la fonction patches() :
+Connectivité (directions = 8) : Les pixels sont regroupés en "patches" s'ils se touchent par un côté ou par une diagonale.
+Extraction des coordonnées : Le centre de chaque pixel appartenant à un patch est transformé en coordonnées cartésiennes $(x, y)$ pour permettre l'analyse géométrique.Cette étape remplace le clustering DBSCAN par une analyse de voisinage sur grille, plus rapide mais sensible à la fusion des pixels proches.
+
+## 3. Analyse géométrique par ACP
+Chaque patch détecté est soumis à une Analyse en Composantes Principales (ACP) pour caractériser sa morphologie :
+Calcul de l'angle : Détermination de l'orientation de l'axe majeur du patch de pixels.
+Ratio d'élongation : Calcul de la force de la forme allongée ($\lambda_1 / \lambda_2$).
+Surface et Dimensions : Calcul de la surface réelle (nombre de pixels $\times$ résolution) et des dimensions axiales.
+Filtrage de forme : Suppression des patches trop petits ($< 10\text{ m}^2$) ou trop peu allongés (ratio $< 4$) pour être considérés comme des rangs.
+
+
+```{r}
+# ------------------------------------------------------------------------------
+# FONCTION 1 : ACP INITIALE
+# ------------------------------------------------------------------------------
+
+pca_metrics_coords <- function(xy) {
+  
+  if (is.null(xy) || nrow(xy) < 3) {
+    return(list(angle = NA_real_, ratio = NA_real_, length = NA_real_, width = NA_real_))
+  }
+  
+  M <- scale(xy, center = TRUE, scale = FALSE)
+  C <- crossprod(M)
+  eig <- eigen(C)
+  
+  vals <- eig$values
+  vecs <- eig$vectors
+  
+  if (length(vals) < 2 || any(!is.finite(vals)) || min(vals, na.rm = TRUE) <= 0) {
+    return(list(angle = NA_real_, ratio = NA_real_, length = NA_real_, width = NA_real_))
+  }
+  
+  i1 <- which.max(vals)
+  i2 <- which.min(vals)
+  
+  v1 <- vecs[, i1]
+  v2 <- vecs[, i2]
+  
+  proj1 <- as.numeric(M %*% v1)
+  proj2 <- as.numeric(M %*% v2)
+  
+  angle <- atan2(v1[2], v1[1]) * 180 / pi
+  if (angle < 0) angle <- angle + 180
+  
+  list(
+    angle = angle,
+    ratio = vals[i1] / vals[i2],
+    length = diff(range(proj1, na.rm = TRUE)),
+    width  = diff(range(proj2, na.rm = TRUE))
+  )
+}
+
+# ------------------------------------------------------------------------------
+# FONCTION 2 : CALCUL DE L'ORIENTATION
+# ------------------------------------------------------------------------------
+
+calculer_orientation_une_parcelle_lidar <- function(parc_i, ctg, masque_raster, eps_clustering = 0.8, minPts = 10, min_ratio = 4, max_width_m = 6, min_length_m = 3) {
+  
+  current_idu <- parc_i$IDU 
+  
+  # 1. Découpage du nuage de points (SANS TRYCATCH)
+  las <- clip_roi(ctg, parc_i)
+  
+  if (is.empty(las)) return(NULL)
+  
+  # 2. Premier filtre (Classes et hauteur Z)
+  las_filtered <- filter_poi(las, Classification %in% c(3, 4, 5), Z >= 0.3, Z <= 3.0)
+  
+  if (is.empty(las_filtered)) return(NULL)
+  
+  # 3. Deuxième filtre spatial avec le masque binaire
+  xy_pts <- cbind(las_filtered@data$X, las_filtered@data$Y)
+  pts_vect <- vect(xy_pts, crs = crs(masque_raster))
+  
+  # Extraction des valeurs du raster aux coordonnées des points
+  valeurs_masque <- extract(masque_raster, pts_vect)[, 2]
+  
+  # Ajout des valeurs au nuage de points et conservation
+  las_filtered@data$in_mask <- valeurs_masque
+  las_final <- filter_poi(las_filtered, in_mask == 1) 
+  
+  if (is.empty(las_final)) return(NULL)
+  
+  # 4. Clustering euclidien (BDSCAN)
+  xy_final <- cbind(las_final@data$X, las_final@data$Y)
+  res_dbscan <- dbscan::dbscan(xy_final, eps = eps_clustering, minPts = minPts)
+  
+  dt <- data.table(x = xy_final[, 1], y = xy_final[, 2], cluster_id = res_dbscan$cluster)
+  
+  dt <- dt[cluster_id != 0]
+  if (nrow(dt) == 0) return(NULL)
+  
+  # 5. ACP par cluster
+  res_metrics <- dt[, {
+    n_pts <- .N
+    if (n_pts < minPts) { 
+      list(IDU = current_idu, angle = NA_real_, ratio = NA_real_, width_m = NA_real_, length_m = NA_real_, pts_count = n_pts)
+    } else {
+      xy_mat <- cbind(x, y)
+      res_pca <- pca_metrics_coords(xy_mat)
+      
+      list(IDU = current_idu, angle = res_pca$angle, ratio = res_pca$ratio, width_m = res_pca$width, length_m = res_pca$length, pts_count = n_pts)
+    }
+  }, by = cluster_id]
+  
+  # 6. Filtres de forme
+  res_metrics <- res_metrics[!is.na(angle) & 
+                               ratio >= min_ratio & 
+                               width_m <= max_width_m & 
+                               length_m >= min_length_m]
+  
+  return(as.data.frame(res_metrics))
+}
+
+# ------------------------------------------------------------------------------
+# FONCTION 3 : ÉVALUATION STATISTIQUE PAR PARCELLE
+# ------------------------------------------------------------------------------
+
+evaluer_statistiques_parcelles <- function(parc, patch_metrics) {
+  if (nrow(patch_metrics) == 0) return(parc)
+  
+  stats <- patch_metrics %>%
+    group_by(IDU) %>%
+    summarise(
+      nb_rangs_detectes = n(),
+      force_orientation_moyenne = mean(ratio, na.rm = TRUE),
+      sum_cos = sum(cos((angle * 2) * pi / 180), na.rm = TRUE),
+      sum_sin = sum(sin((angle * 2) * pi / 180), na.rm = TRUE),
+      angle_dominant = (atan2(sum_sin, sum_cos) / 2) * 180 / pi,
+      coherence_angulaire = sqrt(sum_cos^2 + sum_sin^2) / n(),
+      .groups = "drop"
+    ) %>%
+    mutate(angle_dominant = angle_dominant %% 180)
+  
+  return(parc %>% left_join(stats, by = "IDU"))
+}
+
+# ------------------------------------------------------------------------------
+# EXÉCUTION AVEC LA BOUCLE
+# ------------------------------------------------------------------------------
+
+chemin_parcelles <- "C:/Users/tliegeon/Desktop/Hilal_Exemple_commune_entiere/output_gironde/33394/parcelles_commune.gpkg"
+chemin_masque_brut <- "C:/Users/tliegeon/Desktop/Hilal_Exemple_commune_entiere/output_gironde/33394/vegmask.tif"
+dossier_tmp <- "C:/Users/tliegeon/Desktop/Hilal_Exemple_commune_entiere/tmp_lidar_back_emilion/tmp_lidar/"
+
+fichiers_norm <- list.files(dossier_tmp, pattern = "norm_.*\\.laz$", full.names = TRUE)
+ctg_norm <- readLAScatalog(fichiers_norm)
+
+st_crs(ctg_norm) <- 2154
+
+opt_chunk_buffer(ctg_norm) <- 0
+opt_output_files(ctg_norm) <- ""
+
+parc_com <- st_read(chemin_parcelles, quiet = TRUE)
+parc_com <- parc_com[!st_is_empty(parc_com), ]
+
+mask_raw_com <- rast(chemin_masque_brut)
+
+# Boucle de traitement
+liste_resultats <- pblapply(1:nrow(parc_com), function(i) {
+  calculer_orientation_une_parcelle_lidar(parc_com[i, ], ctg_norm, mask_raw_com)
+})
+
+metriques_patchs <- bind_rows(liste_resultats)
+parcelles_evaluees <- evaluer_statistiques_parcelles(parc_com, metriques_patchs)
+
+chemin_sortie <- "C:/Users/tliegeon/Desktop/Hilal_Exemple_commune_entiere/output_gironde/33394/TEST_statistiques_orientation_LIDAR_MASQUE.gpkg"
+st_write(parcelles_evaluees, chemin_sortie, append = FALSE, quiet = TRUE)
+message("--- Traitement terminé.")
