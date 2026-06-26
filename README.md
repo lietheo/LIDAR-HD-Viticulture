@@ -10,7 +10,7 @@
   </tr>
 </table>
 
-# Analyse de la variabilité structurelle du couvert viticole par LiDAR HD (IGN)
+# Analyse de la variabilité structurelle du couvert viticole par LiDAR HD
 
 Ce dépôt contient le code source développé dans le cadre du mémoire de Master 2 "Observation de la Terre et Géomatique" (Université de Strasbourg). L'étude porte sur la caractérisation de l'architecture du couvert végétal dans le vignoble girondin à l'aide de données LiDAR Haute Densité IGN, et sur l'analyse de ses déterminants environnementaux et anthropiques.
 
