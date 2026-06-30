@@ -42,10 +42,10 @@ L'ensemble des scripts Python et R est regroupé dans le dossier `code`. Le tabl
 
 | Script | Utilité | Section associée |
 | :--- | :--- | :---: |
-| **VALIDATION_PERIMETRE_CANDIDATE** | Croisement des référentiels OSM/CoSIA, CVI et masque M2 pour la validation du périmètre parcellaire | IV.3.1 |
 | **INVENTAIRE_DALLES_GRIONDE** | Inventaire des dalles LiDAR disponibles sur le territoire girondin | IV.3.2 |
-| **WORKFLOW_LIDAR** | Pipeline principal de traitement LiDAR (génération MNT, normalisation, CHM, masques de végétation) | IV.4 |
+| **WORKFLOW_LIDAR** | Parcelles candidates inventaire + pipeline principal de traitement LiDAR (génération MNT, normalisation, CHM, masques de végétation) | IV.3.1 / IV.4 |
 | **COMPARAISON_MNT_IDW_ET_IGNTIN** | Comparaison et validation du MNT IDW k-NN par rapport au MNT IGN (TIN) | IV.4.3 |
+| **VALIDATION_PERIMETRE_CANDIDATE** | Croisement des référentiels OSM/CoSIA, CVI et masque M2 pour la validation du périmètre parcellaire | IV.5 |
 | **METRIQUE_VEGETATION** | Extraction des métriques structurelles de la canopée (*hmean*, *hstd*, *canopy_cover*) | IV.6 |
 | **PRETRAITEMENT_METRIQUE_TOPO_GIRONDE** | Génération des bandes raster topographiques dérivées du MNT (pente, orientation, TWI) | IV.7.1 |
 | **METRIQUE_TOPOGRAPHIQUE** | Calcul des indicateurs topographiques | IV.7.1 |
