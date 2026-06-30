@@ -16,7 +16,7 @@ Ce dépôt contient le code source développé dans le cadre du mémoire de Mast
 
 Le mémoire de recherche complet ainsi que l'ensemble des scripts Python et R développés dans le cadre de cette étude sont disponibles au sein de ce dépôt.
 
-## Contexte et Objectifs
+## Objectifs
 
 L'objectif de ce projet est de modéliser la variabilité structurelle des parcelles viticoles en croisant des métriques dérivées du LiDAR avec des variables topographiques et agronomiques. La méthodologie repose sur une chaîne de traitement géomatique complète, de la donnée brute à la modélisation statistique multivariée.
 
