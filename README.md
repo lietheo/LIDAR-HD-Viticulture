@@ -10,8 +10,7 @@
   </tr>
 </table>
 
-# Variabilité structurelle de la canopée viticole en Gironde : 
-# Analyse des facteurs agro-environnementaux à partir du LiDAR HD
+# Variabilité structurelle de la canopée viticole en Gironde : Analyse des facteurs agro-environnementaux à partir du LiDAR HD
 
 
 Ce dépôt contient le code source développé dans le cadre du mémoire de Master 2 "Observation de la Terre et Géomatique" (Université de Strasbourg). L'étude porte sur la caractérisation de l'architecture du couvert végétal dans le vignoble girondin à l'aide de données LiDAR Haute Densité IGN, et sur l'analyse de ses déterminants environnementaux et anthropiques.
