@@ -57,7 +57,6 @@ L'ensemble des scripts Python et R est regroupé dans le dossier `code`. Le tabl
 ## Contexte du projet
 * **Auteur :** Théo Liegeon
 * **Structure d'accueil :** CESAER (UMR1041 INRAE - Institut Agro Dijon)
-* **Partenaire académique :** Laboratoire Image, Ville, Environnement (UMR7362 CNRS-Unistra)
 * **Année :** 2025 - 2026
 
 *Ce code est fourni à des fins d'évaluation académique et de documentation méthodologique.*
